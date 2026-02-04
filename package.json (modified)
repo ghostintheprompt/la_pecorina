@@ -1,0 +1,19 @@
+{
+  "name": "motivation-blocker-extension",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "jest": "^27.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ]
+  }
+}
