@@ -1,0 +1,28 @@
+{
+  "name": "lapecorina",
+  "version": "1.0.0",
+  "description": "Security research project for educational purposes",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint src/**/*.js",
+    "build": "echo \"No build step required\" && exit 0"
+  },
+  "keywords": [
+    "security",
+    "education",
+    "research",
+    "browser-extension"
+  ],
+  "author": "Security Researcher",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@types/chrome": "^0.0.246",
+    "@types/jest": "^29.5.5",
+    "babel-jest": "^29.7.0",
+    "eslint": "^8.51.0",
+    "jest": "^29.7.0"
+  }
+}

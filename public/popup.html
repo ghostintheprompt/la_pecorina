@@ -1,0 +1,40 @@
+/popup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Pecorina</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="header">
+  <h2>Security Research Console</h2>
+  <div class="badge">Educational Demo</div>
+</div>
+
+<div class="card">
+  <h3>Detection Metrics</h3>
+  <div class="metric-grid">
+    <div class="metric">
+      <div class="metric-value" id="postsDetected">0</div>
+      <div class="metric-label">Content Triggers</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" id="providerInteractions">0</div>
+      <div class="metric-label">Provider Events</div>
+    </div>
+  </div>
+</div>
+    <div id="popup-container">
+        <div class="logo-container">
+            <img src="assets/LaPecorina.png" alt="La Pecorina Logo" class="logo">
+            <h1>La Pecorina</h1>
+        </div>
+        <p>Security research demonstration</p>
+        <button id="block-posts">Monitor Content</button>
+        <button id="detect-wallets">Detect Wallets</button>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

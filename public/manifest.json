@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "La Pecorina",
+  "version": "1.0.0",
+  "description": "Security research project for educational purposes in controlled environments",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://www.linkedin.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.linkedin.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/LaPecorina.png",
+      "48": "assets/LaPecorina.png",
+      "128": "assets/LaPecorina.png"
+    }
+  },
+  "icons": {
+    "16": "assets/LaPecorina.png",
+    "48": "assets/LaPecorina.png",
+    "128": "assets/LaPecorina.png"
+  }
+}
