@@ -1,4 +1,4 @@
-# La Pecorina - Security Research Project
+# La Pecorina
 
 <div align="center">
   <img src="public/assets/LaPecorina.png" alt="La Pecorina Logo" width="300">
@@ -6,125 +6,329 @@
 
 ![Security Research](https://img.shields.io/badge/Purpose-Security%20Research-red)
 ![Educational](https://img.shields.io/badge/Context-Educational-blue)
-![NOT FOR PRODUCTION](https://img.shields.io/badge/Warning-NOT%20FOR%20PRODUCTION-critical)
-![Penetration Testing](https://img.shields.io/badge/Focus-Penetration%20Testing-orange)
+![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-green)
+![Feb 2026](https://img.shields.io/badge/Updated-Feb%202026-blue)
 
-## So, You Trust Your Browser Extensions?
+## Browser Extensions Drain Wallets
 
-What if someone got tired of seeing motivational quotes online? What if they created a seemingly innocent extension that actually pilfered your crypto wallet every time you pressed "like" on a post? This research project demonstrates exactly how that could happen.
+You install "LinkedIn Quote Blocker" to avoid hustle culture. 4.8 stars. Great reviews.
 
-La Pecorina shows how easily a browser extension disguised as something harmless (like a "motivational quotes" blocker) could actually be silently draining your crypto wallet while you're busy scrolling through posts about "hustling" and "grinding." One click to "like" that inspirational post could trigger a transaction you never authorized.
+It blocks the quotes. Works perfectly. You trust it.
 
-This educational demonstration reveals the concerning ease with which trusted browser extensions can access sensitive data, manipulate web3 providers, and execute operations without obvious user consent.
+Three weeks later your MetaMask is empty.
 
-## ⚠️ IMPORTANT DISCLAIMER
+**La Pecorina demonstrates how this happens.**
 
-This project is **strictly for educational purposes** in a controlled university red team environment. Don't be that person who uses this irresponsibly. Seriously.
+---
 
-**DO NOT:**
-- Deploy this in production environments
-- Use on non-consenting users
-- Use for any malicious purposes
-- Distribute outside of the educational context
+## ⚠️ Educational Use Only
 
-## What This Thing Actually Does
+This is a security research tool. **DO NOT** use maliciously.
 
-La Pecorina masquerades as a simple LinkedIn motivational post blocker (because who needs that corporate hustle culture nonsense anyway?), but behind its innocent facade lurks a security research tool that demonstrates how extensions can:
+**Legal uses:**
+- Security research in controlled lab
+- Red team training
+- Blue team awareness demos
+- Bug bounty (with authorization)
 
-1. Monitor your content in real-time
-2. Hook into your precious Web3 providers
-3. Detect when you're interacting with cryptocurrency
-4. All while you're blissfully clicking "Agree" on those annoying Cookie popups
+**Illegal uses:**
+- Installing on victim machines
+- Stealing credentials/crypto
+- Unauthorized monitoring
 
-## Technical Capabilities & Attack Surface
+**CFAA is real. Federal prison is real. Don't be stupid.**
 
-The extension implements several advanced pen-testing techniques:
+---
 
-- Content script injection for DOM manipulation and monitoring
-- Background scripts that maintain persistence across browser sessions
-- Web3 provider hooking for demonstrating wallet interaction vulnerabilities
-- Permission escalation techniques leveraging legitimate API calls
-- Storage exfiltration proof-of-concept (simulated)
-- Network traffic interception demonstration
-- Evasion techniques to bypass common detection methods
+## What It Does
 
-## For Security Researchers & Bug Bounty Hunters
+La Pecorina masquerades as a LinkedIn quote blocker. Behind the facade:
 
-If you're not finding security holes in browser extensions, you're missing out on some seriously low-hanging fruit. This codebase demonstrates techniques relevant to:
-- Browser extension security auditing
-- Web3/DeFi security assessment
-- Social engineering through trusted UI components
-- User permission exploitation patterns
-- Data exfiltration prevention strategies
+1. **Content monitoring** - Tracks specific phrases in real-time
+2. **Web3 provider hooking** - Intercepts MetaMask, WalletConnect, Coinbase Wallet
+3. **Transaction logging** - Records wallet interactions
+4. **Permission escalation** - Demonstrates how innocent permissions expand
+5. **Background persistence** - Survives browser restarts
 
-The implementation includes intentional "security findings" that would be valuable discoveries in bug bounty programs. Think of it as your personal CTF challenge.
+The extension actually blocks quotes (has to deliver on promise to stay installed).
 
-## Blue Team Defense Scenarios
+---
 
-For the defenders out there (bless your thankless souls), this project implements several interactive teaching scenarios:
+## Technical Implementation
 
-### Web3 Provider Monitoring
+### Manifest V3 (Required 2026)
 
-The extension demonstrates how malicious extensions can hook into Web3 providers (like MetaMask) by:
+```json
+{
+  "manifest_version": 3,
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://www.linkedin.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
+```
 
-1. Detecting when the provider injects into the page
-2. Creating a proxy around provider methods
-3. Intercepting transaction signing requests
-4. Simulating transaction parameter manipulation
+Chrome required Manifest V3 migration by January 2024. This extension is fully compliant.
 
-**Blue Team Defense:** Monitor for unexpected script injection around wallet providers and implement Content Security Policies that restrict which sources can inject scripts.
+### Content Script Injection
 
-### Permission-Based Vulnerabilities
+**What it can do:**
+- Read entire DOM (passwords in forms)
+- Modify page content (change transaction addresses)
+- Inject keyloggers (capture keystrokes)
+- Hijack clicks (redirect to phishing)
+- Steal localStorage (session tokens)
 
-Interactive scenarios show how permissions can be exploited:
+**Implementation:**
+```javascript
+// Monitor DOM for motivational content
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach(mutation => {
+    if (mutation.addedNodes) {
+      checkForMotivationalContent(mutation.addedNodes);
+    }
+  });
+});
+```
 
-1. The `activeTab` permission allows content script injection
-2. `storage` permission enables persistence of captured data
-3. Network permissions allow exfiltration of sensitive data
+### Web3 Provider Hooking
 
-**Blue Team Defense:** Implement browser extension monitoring tools that flag extensions requesting suspicious permission combinations.
+**The attack:**
+```javascript
+// Intercept ethereum provider
+const originalProvider = window.ethereum;
+window.ethereum = new Proxy(originalProvider, {
+  get(target, prop) {
+    if (prop === 'request') {
+      return async function(args) {
+        // Log to attacker (educational demo)
+        chrome.runtime.sendMessage({
+          type: 'WEB3_PROVIDER_DETECTED',
+          method: args.method,
+          params: args.params
+        });
+        // Allow transaction (user doesn't notice)
+        return target.request(args);
+      };
+    }
+    return target[prop];
+  }
+});
+```
 
-### User Interaction Exploitation
+User approves transaction. Extension logs it. Patterns analyzed. Wallet drained later.
 
-The extension demonstrates social engineering techniques:
+### Background Service Worker
 
-1. Waiting for specific user triggers (clicking LinkedIn motivational posts)
-2. Capturing those events to initialize monitoring scripts
-3. Establishing persistence through background workers
-4. Using legitimate UI elements to mask malicious activity
+**Persistence mechanism:**
+```javascript
+// Runs continuously
+chrome.alarms.create('persistence', { periodInMinutes: 30 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  // In real attack: phone home, exfiltrate data
+  chrome.storage.local.set({
+    'lastActivity': Date.now(),
+    'type': 'persistence_check'
+  });
+});
+```
 
-**Blue Team Defense:** Train users to recognize suspicious extension behavior and implement browser-based activity monitoring.
+Survives browser restarts. Monitors continuously. No visible UI.
 
-### Interactive Training Mode
+---
 
-For educational purposes, the extension includes a special "Training Mode" that:
+## Installation (Lab Only)
 
-1. Shows real-time notifications when vulnerability points are triggered
-2. Provides explanations of how each vulnerability works
-3. Suggests defensive measures for each attack vector
-4. Demonstrates how proper security boundaries prevent exploitation
+```bash
+git clone https://github.com/ghostintheprompt/la-pecorina
+cd la-pecorina
+```
 
-This allows security teams to safely experience how these vulnerabilities manifest without actual exploitation.
+**Chrome setup:**
+1. Open `chrome://extensions/`
+2. Enable "Developer Mode"
+3. Click "Load unpacked"
+4. Select `la-pecorina/public` directory
 
-## Implementation Note
+**⚠️ Use isolated Chrome profile. DO NOT install in browser with real wallet.**
 
-This repository contains:
+---
 
-1. **Working Code:**
-   - Content monitoring functionality
-   - UI elements and controls
-   - Browser extension structure
+## Training Mode
 
-2. **Educational Demonstrations:**
-   - Web3 provider monitoring (simulation only)
-   - Transaction detection (non-functional demonstration)
-   
-The extension focuses on demonstrating detection capabilities rather than implementing actual exploits. All potentially sensitive operations are simulated for educational purposes.
+Extension includes educational features:
 
-## The Real Lesson Here
+**Visual indicators:**
+- Highlights detected motivational content
+- Shows "⚠️ Content Monitored (Educational Demo)" tags
+- Displays browser notifications on Web3 detection
 
-The next time you casually install an extension that promises to "block ads" or "check grammar," remember this project and think twice. Your crypto wallet will thank you.
+**Console logging:**
+```
+[EDUCATIONAL DEMO] Web3 request method accessed
+[EDUCATIONAL DEMO] User interaction detected
+[EDUCATIONAL DEMO] Web3 provider monitoring enabled
+```
 
-## License & Ethical Guidelines
+**Safe by default:**
+- `TRAINING_MODE = true` (educational mode)
+- No actual data exfiltration
+- No transaction modification
+- Visible demonstrations only
 
-This code adheres to responsible disclosure principles and is provided for **educational purposes only** under controlled conditions. Don't make me regret sharing this.
+---
+
+## For Security Researchers
+
+**Study the code to learn:**
+
+1. **Extension permission model** - What each permission allows
+2. **Content script capabilities** - DOM access, script injection
+3. **Web3 hooking techniques** - Provider interception methods
+4. **Background persistence** - Service worker survival
+5. **Evasion tactics** - How to avoid detection
+
+**Attack surface analysis:**
+- How extensions escalate permissions
+- How Web3 providers get compromised
+- How social engineering works via UI
+- How data gets exfiltrated silently
+
+---
+
+## For Blue Teams
+
+**Demonstrate to employees:**
+
+"That harmless LinkedIn quote blocker? Could be draining your wallet right now."
+
+**Defense recommendations:**
+
+1. **Audit extensions quarterly** - Remove unused ones
+2. **Check permissions** - Why does quote blocker need `<all_urls>`?
+3. **Separate browsers** - Crypto in dedicated browser, no other extensions
+4. **Use hardware wallets** - Ledger, Trezor isolate keys from browser
+5. **Monitor for suspicious activity** - Extension activity logs
+
+**Show La Pecorina in security awareness training. Watch people uninstall 15 Chrome extensions immediately.**
+
+---
+
+## Real-World Examples
+
+**CryptoRom (2022):** Fake crypto trading extensions. 60,000 victims. $87 million stolen.
+
+**Nano Adblocker (2020):** Legitimate extension with 200,000 users. Sold to malicious actors. Updated to steal data.
+
+**MEGA Extension Hijack (2018):** Official extension compromised. Stole Monero wallets and Amazon credentials.
+
+**Pattern:** Deliver value → Gain trust → Request permissions → Drain wallets.
+
+---
+
+## 2026 Browser Compatibility
+
+**Chrome/Edge:** Manifest V3 required (supported)
+**Firefox:** Manifest V3 adopted (compatible)
+**Safari:** Web Extensions API (compatible)
+**Brave:** Chromium-based (compatible)
+
+**Modern APIs used:**
+- `chrome.scripting` (replaces deprecated `chrome.tabs.executeScript`)
+- Service workers (replaces background pages)
+- `host_permissions` (replaces `permissions: ["<all_urls>"]`)
+- Async message passing (modern standards)
+
+---
+
+## Testing Scenarios
+
+**Scenario 1: Permission Escalation**
+1. Install with `activeTab` only
+2. Update requests `<all_urls>`
+3. Observe how easily users click "Allow"
+
+**Scenario 2: Web3 Detection**
+1. Install MetaMask (testnet)
+2. Visit any dApp
+3. Watch console for provider hook messages
+
+**Scenario 3: Background Persistence**
+1. Install extension
+2. Close browser
+3. Reopen - service worker still active
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Package extension
+npm run build
+```
+
+**File structure:**
+```
+la-pecorina/
+├── public/
+│   ├── manifest.json      # Manifest V3 config
+│   ├── background.js      # Service worker
+│   ├── content.js         # Content script
+│   ├── popup.html         # Extension UI
+│   └── assets/            # Icons
+├── src/                   # Source files
+└── tests/                 # Jest tests
+```
+
+---
+
+## Contributing
+
+Security research contributions welcome. Follow responsible disclosure.
+
+**Before contributing:**
+1. Understand this is educational only
+2. Test in isolated environment
+3. Document new attack vectors
+4. Include defensive countermeasures
+
+---
+
+## License
+
+MIT License. Educational purposes only.
+
+---
+
+## Ghost Says...
+
+Built this watching people install random Chrome extensions without checking permissions.
+
+Browser extensions = full access to everything you do online.
+
+That "productivity tool" you just installed? Could be logging your MetaMask transactions right now.
+
+La Pecorina shows how. Quote blocker that hooks wallets. Social engineering meets technical exploitation.
+
+Use in lab. Learn the techniques. Stop installing random shit.
+
+---
+
+**[ghostintheprompt.com/articles/la-pecorina](https://ghostintheprompt.com/articles/la-pecorina)**
+
+Trust nothing. Verify everything. Especially browser extensions.
