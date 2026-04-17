@@ -1,27 +1,35 @@
 {
   "manifest_version": 3,
   "name": "La Pecorina",
-  "version": "1.1.0",
-  "description": "Security research project for educational purposes in controlled environments",
+  "version": "1.2.0",
+  "description": "Security research project — AppSec hardening and cryptographic research reference implementation.",
+
   "permissions": [
     "activeTab",
-    "scripting",
     "storage",
     "notifications",
     "alarms"
   ],
+
   "host_permissions": [
     "*://www.linkedin.com/*"
   ],
+
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; connect-src 'none'; img-src 'self' data:;"
+  },
+
   "background": {
     "service_worker": "background.js"
   },
+
   "content_scripts": [
     {
       "matches": ["*://www.linkedin.com/*"],
       "js": ["content.js"]
     }
   ],
+
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -30,6 +38,7 @@
       "128": "assets/LaPecorina.png"
     }
   },
+
   "icons": {
     "16": "assets/LaPecorina.png",
     "48": "assets/LaPecorina.png",

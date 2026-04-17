@@ -1,0 +1,63 @@
+name: Security Lint
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  security-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint with security plugin
+        run: npm run lint -- --format=compact
+        continue-on-error: false
+
+      - name: Run security-focused tests
+        run: npm test -- --testPathPattern="tests/security"
+
+      - name: Check for hardcoded secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate manifest permissions
+        run: |
+          node -e "
+          const manifest = require('./public/manifest.json');
+          const ALLOWED_PERMISSIONS = ['activeTab', 'storage', 'notifications', 'alarms'];
+          const declared = manifest.permissions || [];
+          const unexpected = declared.filter(p => !ALLOWED_PERMISSIONS.includes(p));
+          if (unexpected.length > 0) {
+            console.error('Unexpected permissions detected:', unexpected);
+            process.exit(1);
+          }
+          const csp = manifest.content_security_policy?.extension_pages ?? '';
+          if (!csp.includes(\"connect-src 'none'\")) {
+            console.error('CSP missing connect-src: none directive');
+            process.exit(1);
+          }
+          console.log('Manifest permissions and CSP validated.');
+          "
+
+      - name: Upload lint results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results
+          path: lint-results.txt
+          retention-days: 7
