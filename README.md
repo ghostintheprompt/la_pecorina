@@ -1,13 +1,16 @@
+<img src="public/assets/LaPecorina.png" width="200" alt="La Pecorina Logo">
+
 # La Pecorina
 
-<div align="center">
-  <img src="public/assets/LaPecorina.png" alt="La Pecorina Logo" width="300">
-</div>
+**Social Engineering Browser Extension Demo — v1.0**
 
-![Security Research](https://img.shields.io/badge/Purpose-Security%20Research-red)
-![Educational](https://img.shields.io/badge/Context-Educational-blue)
-![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-green)
-![Feb 2026](https://img.shields.io/badge/Updated-Feb%202026-blue)
+Free. Open-source. No subscriptions. No telemetry. Built by [MDRN Corp](https://mdrn.app).
+
+[![Security Research](https://img.shields.io/badge/Purpose-Security%20Research-red)](https://github.com/ghostintheprompt/la-pecorina)
+[![Educational](https://img.shields.io/badge/Context-Educational-blue)](https://github.com/ghostintheprompt/la-pecorina)
+[![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-green)](https://github.com/ghostintheprompt/la-pecorina)
+
+---
 
 ## Browser Extensions Drain Wallets
 
@@ -329,6 +332,4 @@ Use in lab. Learn the techniques. Stop installing random shit.
 
 ---
 
-**[ghostintheprompt.com/articles/la-pecorina](https://ghostintheprompt.com/articles/la-pecorina)**
-
-Trust nothing. Verify everything. Especially browser extensions.
+Built by **MDRN Corp** — [ghostintheprompt.com](https://ghostintheprompt.com/articles/la-pecorina)
