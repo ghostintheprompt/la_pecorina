@@ -1,4 +1,6 @@
-<img src="public/assets/LaPecorina.png" width="200" alt="La Pecorina Logo">
+<p align="center">
+  <img src="public/assets/LaPecorina.png" width="520" alt="La Pecorina Logo">
+</p>
 
 # La Pecorina
 
