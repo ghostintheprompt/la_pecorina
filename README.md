@@ -335,3 +335,5 @@ Use in lab. Learn the techniques. Stop installing random shit.
 ---
 
 Built by **MDRN Corp** — [ghostintheprompt.com](https://ghostintheprompt.com/articles/la-pecorina)
+
+**Companion piece:** [Bot Toll](https://ghostintheprompt.com/articles/bot-toll) — same instinct, opposite direction. The checkpoint that fights back.
