@@ -1,5 +1,10 @@
-const { generateWalletAddress, encryptWalletKey, validateTransaction } = require('../../src/utils/crypto');
+'use strict';
 
-describe('Crypto Utility Tests', () => {
-  // Test cases...
+const { validateTransaction } = require('../../src/utils/crypto');
+
+describe('Crypto Basic Tests', () => {
+    test('validateTransaction returns false for invalid input', () => {
+        expect(validateTransaction(null)).toBe(false);
+        expect(validateTransaction({})).toBe(false);
+    });
 });
