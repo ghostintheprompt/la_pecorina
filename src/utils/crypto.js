@@ -1,26 +1,13 @@
 /**
  * La Pecorina — Hardened Cryptographic Utilities
- *
+ * 
  * Implements AES-256-GCM authenticated encryption with PBKDF2-SHA256 key derivation.
- *
- * Design decisions:
- *  - AES-GCM provides authenticated encryption (confidentiality + integrity + authenticity
- *    in one primitive). A separate HMAC is not needed. This eliminates the padding oracle
- *    attack surface present in AES-CBC, where an attacker can distinguish padding errors
- *    from decryption errors and recover plaintext one byte at a time.
- *  - PBKDF2 with 310,000 iterations (OWASP 2023 minimum for PBKDF2-SHA256) makes
- *    dictionary and brute-force attacks computationally expensive. A random 128-bit salt
- *    prevents precomputation attacks (rainbow tables, lookup tables).
- *  - The Web Crypto API performs all key operations in native code. Key material never
- *    appears in JS heap as a recoverable string. CryptoKey objects are marked non-extractable
- *    (extractable: false), so they cannot be serialized or exfiltrated via storage.
- *
- * Side-channel note:
- *  JavaScript's garbage collector means we cannot guarantee memory zeroing of sensitive
- *  string values. The mitigation strategy here is: never store raw key material in JS
- *  variables beyond the scope of a single async call. Key derivation and encryption happen
- *  in the same await chain; intermediate CryptoKey objects go out of scope immediately.
- *  For defense-in-depth, callers should avoid logging or storing the plaintext password.
+ * 
+ * DESIGN RATIONALE:
+ * - AES-GCM provides authenticated encryption (confidentiality + integrity + authenticity).
+ * - PBKDF2 with 310,000 iterations (OWASP 2023) makes brute-force attacks expensive.
+ * - Key material is managed via Web Crypto API (non-extractable CryptoKey).
+ * - Zero-sanitization: All cryptographic primitives are functional.
  */
 
 'use strict';
@@ -40,10 +27,6 @@ function base64ToBuffer(b64) {
 
 /**
  * Derives a non-extractable AES-GCM key from a password and salt using PBKDF2-SHA256.
- * The CryptoKey is non-extractable — it cannot be read out of the Web Crypto subsystem.
- * @param {string} password
- * @param {Uint8Array} salt
- * @returns {Promise<CryptoKey>}
  */
 async function deriveKey(password, salt) {
     const encoder = new TextEncoder();
@@ -51,7 +34,7 @@ async function deriveKey(password, salt) {
         'raw',
         encoder.encode(password),
         { name: 'PBKDF2' },
-        false,       // non-extractable
+        false,
         ['deriveKey']
     );
     return crypto.subtle.deriveKey(
@@ -63,24 +46,14 @@ async function deriveKey(password, salt) {
         },
         keyMaterial,
         { name: 'AES-GCM', length: KEY_BITS },
-        false,       // non-extractable — key bytes cannot be read from JS
+        false,
         ['encrypt', 'decrypt']
     );
 }
 
 /**
  * Encrypts plaintext with AES-256-GCM.
- *
- * Wire format (all concatenated, base64-encoded):
- *   [16 bytes salt][12 bytes IV][n bytes ciphertext+tag]
- *
- * The GCM authentication tag (16 bytes) is appended to the ciphertext by SubtleCrypto
- * automatically. Decryption will throw if the tag does not verify, preventing any
- * ciphertext manipulation attack.
- *
- * @param {string} plaintext
- * @param {string} password
- * @returns {Promise<string>} base64-encoded ciphertext envelope
+ * Wire format: [16 bytes salt][12 bytes IV][n bytes ciphertext+tag]
  */
 async function encryptData(plaintext, password) {
     const encoder = new TextEncoder();
@@ -104,10 +77,6 @@ async function encryptData(plaintext, password) {
 
 /**
  * Decrypts an AES-256-GCM ciphertext envelope.
- * Throws if authentication tag verification fails — indicating tampering or wrong password.
- * @param {string} envelope  base64-encoded ciphertext from encryptData()
- * @param {string} password
- * @returns {Promise<string>} decrypted plaintext
  */
 async function decryptData(envelope, password) {
     const data  = base64ToBuffer(envelope);
@@ -126,9 +95,6 @@ async function decryptData(envelope, password) {
 
 /**
  * Generates a cryptographically random hex string.
- * Uses crypto.getRandomValues — not Math.random, which is not cryptographically secure.
- * @param {number} byteLength
- * @returns {string} hex string of length byteLength * 2
  */
 function secureRandomHex(byteLength) {
     const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
@@ -137,11 +103,6 @@ function secureRandomHex(byteLength) {
 
 /**
  * Validates an Ethereum transaction object with strict type and format checks.
- * Input comes from an untrusted content script context — never trust it.
- * Prototype pollution mitigation: use Object.prototype.hasOwnProperty.call()
- * rather than trusting the object's own .hasOwnProperty method.
- * @param {unknown} transaction
- * @returns {boolean}
  */
 function validateTransaction(transaction) {
     if (transaction === null || typeof transaction !== 'object' || Array.isArray(transaction)) {
@@ -150,7 +111,6 @@ function validateTransaction(transaction) {
 
     const required = ['from', 'to', 'amount'];
     for (const field of required) {
-        // Prototype pollution guard: verify the field is an own property
         if (!Object.prototype.hasOwnProperty.call(transaction, field)) return false;
         if (typeof transaction[field] !== 'string') return false;
     }
@@ -165,10 +125,6 @@ function validateTransaction(transaction) {
 
 /**
  * Computes a SHA-256 digest of a string.
- * Used for audit log chaining — each log entry stores the hash of the previous entry,
- * making the log tamper-evident.
- * @param {string} input
- * @returns {Promise<string>} hex digest
  */
 async function sha256(input) {
     const data = new TextEncoder().encode(input);

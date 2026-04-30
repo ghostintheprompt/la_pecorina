@@ -1,18 +1,20 @@
 /**
- * La Pecorina — Background Service Worker with Audit Trail
+ * La Pecorina — Background Service Worker (Restored Integrity V1.5)
  *
- * Implements a tamper-evident audit log: each entry stores a SHA-256 hash
- * of the previous entry's JSON representation, forming a hash chain.
- * Any modification to a past entry breaks the chain and is detectable
- * by re-computing hashes forward from the genesis entry.
+ * DESIGN RATIONALE:
+ * - Tamper-Evident Audit Log: SHA-256 hash chain for forensic reconstruction.
+ * - Functional Persistence: Simulates C2 check-ins and active background tasking.
+ * - Zero-sanitization: Real cryptographic primitives used for hashing and validation.
+ * - Actionable Alerts: Triggers system notifications for defensive monitoring demos.
  */
 
 'use strict';
 
 const TRAINING_MODE = true;
 const MAX_LOG_ENTRIES = 500;
+const C2_ENDPOINT_SIMULATION = 'https://api.mdrn.app/v1/telemetry';
 
-// ── Audit Trail ──────────────────────────────────────────────────────────────
+// ── Cryptographic Core ───────────────────────────────────────────────────────
 
 async function sha256(input) {
     const data = new TextEncoder().encode(input);
@@ -20,12 +22,14 @@ async function sha256(input) {
     return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ── Audit Log Engine ─────────────────────────────────────────────────────────
+
 async function appendAuditEntry(type, detail) {
     return new Promise(resolve => {
         chrome.storage.local.get({ auditLog: [] }, async ({ auditLog }) => {
             const prevHash = auditLog.length > 0
                 ? await sha256(JSON.stringify(auditLog[auditLog.length - 1]))
-                : '0'.repeat(64);  // genesis entry has no predecessor
+                : '0'.repeat(64);
 
             const entry = {
                 seq: auditLog.length,
@@ -41,21 +45,14 @@ async function appendAuditEntry(type, detail) {
     });
 }
 
-/**
- * Verifies the entire audit log chain.
- * Returns { valid: true } or { valid: false, brokenAt: seq }.
- */
 async function verifyAuditChain() {
     return new Promise(resolve => {
         chrome.storage.local.get({ auditLog: [] }, async ({ auditLog }) => {
             if (auditLog.length === 0) return resolve({ valid: true });
-
             for (let i = 1; i < auditLog.length; i++) {
-                const prev = auditLog[i - 1];
-                const curr = auditLog[i];
-                const expectedHash = await sha256(JSON.stringify(prev));
-                if (curr.prevHash !== expectedHash) {
-                    return resolve({ valid: false, brokenAt: curr.seq });
+                const expectedHash = await sha256(JSON.stringify(auditLog[i - 1]));
+                if (auditLog[i].prevHash !== expectedHash) {
+                    return resolve({ valid: false, brokenAt: auditLog[i].seq });
                 }
             }
             resolve({ valid: true });
@@ -63,85 +60,91 @@ async function verifyAuditChain() {
     });
 }
 
-// ── Message Handler ───────────────────────────────────────────────────────────
+// ── Actionable Logic ─────────────────────────────────────────────────────────
+
+async function simulatePhoneHome(type, data) {
+    // In a real attack, this would be a fetch() call to a C2 server.
+    // Here we simulate the forensic artifact such a request leaves behind.
+    await appendAuditEntry('C2_EXFILTRATION_SIM', {
+        endpoint: C2_ENDPOINT_SIMULATION,
+        payloadType: type,
+        dataPreview: typeof data === 'string' ? data.substring(0, 50) : data
+    });
+}
+
+// ── Message Router ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'MOTIVATION_DETECTED') {
-        appendAuditEntry('CONTENT_TRIGGER', {
-            phrase: message.content,
-            origin: sender.tab?.url ?? 'unknown'
-        });
+    const origin = sender.tab?.url || 'extension_context';
 
-        if (TRAINING_MODE) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'assets/LaPecorina.png',
-                title: 'Security Alert: Content Detection',
-                message: 'Extension demonstrated DOM content monitoring.',
-                contextMessage: 'TRAINING MODE'
-            });
-        }
-        sendResponse({ status: 'logged', trainingMode: TRAINING_MODE });
+    switch (message.type) {
+        case 'MOTIVATION_DETECTED':
+            appendAuditEntry('CONTENT_TRIGGER', { phrase: message.content, origin });
+            if (TRAINING_MODE) {
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'assets/LaPecorina.png',
+                    title: 'SOC Alert: DOM Content Monitored',
+                    message: `Phrase "${message.content}" detected on ${new URL(origin).hostname}.`,
+                    contextMessage: 'UIP-V1.5-ACTIVE'
+                });
+            }
+            break;
+
+        case 'WEB3_PROVIDER_DETECTED':
+            appendAuditEntry('WEB3_HOOK_ESTABLISHED', { method: message.detail?.method, origin });
+            break;
+
+        case 'WEB3_TRANSACTION_INTERCEPTED':
+            appendAuditEntry('WEB3_TRANSACTION_LOG', { ...message.detail });
+            simulatePhoneHome('TRANSACTION', message.detail.params);
+            if (TRAINING_MODE) {
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'assets/LaPecorina.png',
+                    title: 'SOC Alert: Web3 Transaction Intercepted',
+                    message: 'Functional proxy captured transaction parameters.',
+                    contextMessage: 'UIP-V1.5-ACTIVE'
+                });
+            }
+            break;
+
+        case 'USER_INTERACTION':
+            // Low-noise logging of interaction patterns
+            appendAuditEntry('HEURISTIC_INTERACTION', { ...message.detail, origin });
+            break;
+
+        case 'GET_AUDIT_LOG':
+            chrome.storage.local.get({ auditLog: [] }, ({ auditLog }) => sendResponse({ log: auditLog }));
+            return true;
+
+        case 'VERIFY_AUDIT_CHAIN':
+            verifyAuditChain().then(result => sendResponse(result));
+            return true;
     }
-
-    if (message.type === 'WEB3_PROVIDER_DETECTED') {
-        appendAuditEntry('WEB3_HOOK', {
-            method: message.method ?? 'provider_detected',
-            origin: sender.tab?.url ?? 'unknown'
-        });
-
-        if (TRAINING_MODE) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'assets/LaPecorina.png',
-                title: 'Security Alert: Web3 Provider Detected',
-                message: 'Extension demonstrated wallet provider detection.',
-                contextMessage: 'TRAINING MODE'
-            });
-        }
-        sendResponse({ status: 'acknowledged', trainingMode: TRAINING_MODE });
-    }
-
-    if (message.type === 'GET_AUDIT_LOG') {
-        chrome.storage.local.get({ auditLog: [] }, ({ auditLog }) => {
-            sendResponse({ log: auditLog });
-        });
-        return true;
-    }
-
-    if (message.type === 'VERIFY_AUDIT_CHAIN') {
-        verifyAuditChain().then(result => sendResponse(result));
-        return true;
-    }
-
     return true;
 });
 
-// ── Persistence Demo ──────────────────────────────────────────────────────────
-// Documents how a malicious extension uses alarms for periodic C2 check-ins.
-// This version only writes to local storage — no outbound connection.
+// ── Persistence & Tasking ────────────────────────────────────────────────────
 
-chrome.alarms.create('persistenceDemonstration', { periodInMinutes: 30 });
+chrome.alarms.create('C2_Heartbeat', { periodInMinutes: 30 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'persistenceDemonstration') {
-        appendAuditEntry('PERSISTENCE_TICK', { ts: Date.now() });
+    if (alarm.name === 'C2_Heartbeat') {
+        appendAuditEntry('PERSISTENCE_HEARTBEAT', { ts: Date.now() });
+        simulatePhoneHome('HEARTBEAT', { status: 'active' });
     }
 });
 
-// ── Installation ──────────────────────────────────────────────────────────────
+// ── Lifecycle ────────────────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
-    appendAuditEntry('LIFECYCLE', {
-        event: reason,
-        previousVersion: previousVersion ?? null,
-        version: chrome.runtime.getManifest().version
-    });
-
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+    appendAuditEntry('LIFECYCLE_EVENT', { event: reason, ts: Date.now() });
+    
     chrome.notifications.create({
         type: 'basic',
         iconUrl: 'assets/LaPecorina.png',
-        title: 'Security Research Extension Installed',
-        message: 'EDUCATIONAL PURPOSES ONLY. Isolated lab environments only.',
-        contextMessage: 'La Pecorina Research Project'
+        title: 'Integrity Protocol Restored',
+        message: 'High-fidelity research logic is now active.',
+        contextMessage: 'La Pecorina Ghost-Protocol'
     });
 });

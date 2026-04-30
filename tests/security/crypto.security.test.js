@@ -5,12 +5,6 @@
 
 'use strict';
 
-// Web Crypto polyfill for Node.js test environment
-const { webcrypto } = require('crypto');
-global.crypto = webcrypto;
-global.btoa = (s) => Buffer.from(s, 'binary').toString('base64');
-global.atob = (s) => Buffer.from(s, 'base64').toString('binary');
-
 const { encryptData, decryptData, validateTransaction, secureRandomHex, sha256 } = require('../../src/utils/crypto');
 
 describe('AES-GCM Authentication — tamper detection', () => {

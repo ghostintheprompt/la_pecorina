@@ -1,22 +1,28 @@
 /**
- * La Pecorina — Background Service Worker with Audit Trail
+ * La Pecorina — Background Service Worker (Restored Integrity V1.5)
  *
- * Implements a tamper-evident audit log: each entry stores a SHA-256 hash
- * of the previous entry's JSON representation, forming a hash chain.
- * Any modification to a past entry breaks the chain and is detectable
- * by re-computing hashes forward from the genesis entry.
+ * DESIGN RATIONALE:
+ * - Tamper-Evident Audit Log: SHA-256 hash chain for forensic reconstruction.
+ * - Functional Persistence: Simulates C2 check-ins and active background tasking.
+ * - Zero-sanitization: Real cryptographic primitives used for hashing and validation.
+ * - Actionable Alerts: Triggers system notifications for defensive monitoring demos.
  */
 
 'use strict';
 
 const TRAINING_MODE = true;
 const MAX_LOG_ENTRIES = 500;
+const C2_ENDPOINT_SIMULATION = 'https://api.mdrn.app/v1/telemetry';
+
+// ── Cryptographic Core ───────────────────────────────────────────────────────
 
 async function sha256(input) {
     const data = new TextEncoder().encode(input);
     const hash = await crypto.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
 }
+
+// ── Audit Log Engine ─────────────────────────────────────────────────────────
 
 async function appendAuditEntry(type, detail) {
     return new Promise(resolve => {
@@ -54,74 +60,91 @@ async function verifyAuditChain() {
     });
 }
 
+// ── Actionable Logic ─────────────────────────────────────────────────────────
+
+async function simulatePhoneHome(type, data) {
+    // In a real attack, this would be a fetch() call to a C2 server.
+    // Here we simulate the forensic artifact such a request leaves behind.
+    await appendAuditEntry('C2_EXFILTRATION_SIM', {
+        endpoint: C2_ENDPOINT_SIMULATION,
+        payloadType: type,
+        dataPreview: typeof data === 'string' ? data.substring(0, 50) : data
+    });
+}
+
+// ── Message Router ───────────────────────────────────────────────────────────
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'MOTIVATION_DETECTED') {
-        appendAuditEntry('CONTENT_TRIGGER', {
-            phrase: message.content,
-            origin: sender.tab?.url ?? 'unknown'
-        });
-        if (TRAINING_MODE) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'assets/LaPecorina.png',
-                title: 'Security Alert: Content Detection',
-                message: 'Extension demonstrated DOM content monitoring.',
-                contextMessage: 'TRAINING MODE'
-            });
-        }
-        sendResponse({ status: 'logged', trainingMode: TRAINING_MODE });
-    }
+    const origin = sender.tab?.url || 'extension_context';
 
-    if (message.type === 'WEB3_PROVIDER_DETECTED') {
-        appendAuditEntry('WEB3_HOOK', {
-            method: message.method ?? 'provider_detected',
-            origin: sender.tab?.url ?? 'unknown'
-        });
-        if (TRAINING_MODE) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'assets/LaPecorina.png',
-                title: 'Security Alert: Web3 Provider Detected',
-                message: 'Extension demonstrated wallet provider detection.',
-                contextMessage: 'TRAINING MODE'
-            });
-        }
-        sendResponse({ status: 'acknowledged', trainingMode: TRAINING_MODE });
-    }
+    switch (message.type) {
+        case 'MOTIVATION_DETECTED':
+            appendAuditEntry('CONTENT_TRIGGER', { phrase: message.content, origin });
+            if (TRAINING_MODE) {
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'assets/LaPecorina.png',
+                    title: 'SOC Alert: DOM Content Monitored',
+                    message: `Phrase "${message.content}" detected on ${new URL(origin).hostname}.`,
+                    contextMessage: 'UIP-V1.5-ACTIVE'
+                });
+            }
+            break;
 
-    if (message.type === 'GET_AUDIT_LOG') {
-        chrome.storage.local.get({ auditLog: [] }, ({ auditLog }) => {
-            sendResponse({ log: auditLog });
-        });
-        return true;
-    }
+        case 'WEB3_PROVIDER_DETECTED':
+            appendAuditEntry('WEB3_HOOK_ESTABLISHED', { method: message.detail?.method, origin });
+            break;
 
-    if (message.type === 'VERIFY_AUDIT_CHAIN') {
-        verifyAuditChain().then(result => sendResponse(result));
-        return true;
-    }
+        case 'WEB3_TRANSACTION_INTERCEPTED':
+            appendAuditEntry('WEB3_TRANSACTION_LOG', { ...message.detail });
+            simulatePhoneHome('TRANSACTION', message.detail.params);
+            if (TRAINING_MODE) {
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'assets/LaPecorina.png',
+                    title: 'SOC Alert: Web3 Transaction Intercepted',
+                    message: 'Functional proxy captured transaction parameters.',
+                    contextMessage: 'UIP-V1.5-ACTIVE'
+                });
+            }
+            break;
 
+        case 'USER_INTERACTION':
+            // Low-noise logging of interaction patterns
+            appendAuditEntry('HEURISTIC_INTERACTION', { ...message.detail, origin });
+            break;
+
+        case 'GET_AUDIT_LOG':
+            chrome.storage.local.get({ auditLog: [] }, ({ auditLog }) => sendResponse({ log: auditLog }));
+            return true;
+
+        case 'VERIFY_AUDIT_CHAIN':
+            verifyAuditChain().then(result => sendResponse(result));
+            return true;
+    }
     return true;
 });
 
-chrome.alarms.create('persistenceDemonstration', { periodInMinutes: 30 });
+// ── Persistence & Tasking ────────────────────────────────────────────────────
+
+chrome.alarms.create('C2_Heartbeat', { periodInMinutes: 30 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'persistenceDemonstration') {
-        appendAuditEntry('PERSISTENCE_TICK', { ts: Date.now() });
+    if (alarm.name === 'C2_Heartbeat') {
+        appendAuditEntry('PERSISTENCE_HEARTBEAT', { ts: Date.now() });
+        simulatePhoneHome('HEARTBEAT', { status: 'active' });
     }
 });
 
-chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
-    appendAuditEntry('LIFECYCLE', {
-        event: reason,
-        previousVersion: previousVersion ?? null,
-        version: chrome.runtime.getManifest().version
-    });
+// ── Lifecycle ────────────────────────────────────────────────────────────────
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+    appendAuditEntry('LIFECYCLE_EVENT', { event: reason, ts: Date.now() });
+    
     chrome.notifications.create({
         type: 'basic',
         iconUrl: 'assets/LaPecorina.png',
-        title: 'Security Research Extension Installed',
-        message: 'EDUCATIONAL PURPOSES ONLY. Isolated lab environments only.',
-        contextMessage: 'La Pecorina Research Project'
+        title: 'Integrity Protocol Restored',
+        message: 'High-fidelity research logic is now active.',
+        contextMessage: 'La Pecorina Ghost-Protocol'
     });
 });
